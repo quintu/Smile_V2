@@ -17,7 +17,7 @@
 #include "SmaRTClock.h"
 //#include "F93x_FlashPrimitives.h"
 #include "F93x_FlashUtils.h"
-
+#include "power.h"
 
  //-----------------------------------------------------------------------------
  // Function PROTOTYPES
@@ -27,9 +27,11 @@
  void start_timer();
  void stop_timer();
  U16 RTC_to_hours(U32 RTC_time);
- void display_hours_on_LEDs(U16 hours);
+ void display_hours_on_LEDs(U32 hours);
  U16 get_hours_elapsed();
- void increment_hours_elapsed(U16 hours_elapsed);
+ void increment_hours_elapsed(U32 hours_elapsed);
+ void start_timer_0();
+ //enum GoalTime get_goal_time();
 
 
 //-----------------------------------------------------------------------------
@@ -51,14 +53,17 @@ void SiLabs_Startup (void)
 // main() Routine
 // ----------------------------------------------------------------------------
 int main (void) {
+	bool erase_flash;
 	 bool chin_button_state;
 	 bool time_button_state;
-	 U16 hours_elapsed;
+	 U32 hours_elapsed;
 	 U8 wakeup_sources;
-		//U8 RTC0CN_current;
-	//while(!CHIN_BUTTON);                     // Debug Trap -- Prevents the system
-									   	   	   // from entering sleep mode after
-									   	   	   // a reset if Switch 2 is pressed.
+	 erase_flash = 0;
+	 // Debug Trap -- Prevents the system from entering sleep mode after a reset if Switch 2 is pressed.
+	while(!TIME_BUTTON) {
+		erase_flash = 1;
+	}
+
 
 	//Enter default mode
 	enter_DefaultMode_from_RESET();
@@ -66,6 +71,11 @@ int main (void) {
 	RED_LED    = LED_OFF;                  // Initialize the state of the signals
 	YELLOW_LED = LED_OFF;
 	GREEN_LED  = LED_OFF;
+	/*
+	RED_LED = LED_ON;
+		YELLOW_LED = LED_ON;
+		GREEN_LED = LED_ON;
+		*/
 
 	LPM_Init();                         // Initialize Power Management
 	LPM_Enable_Wakeup(PORT_MATCH);      // Enable Port Match wake-up source
@@ -78,17 +88,14 @@ int main (void) {
 	time_button_state = TIME_BUTTON;
 	RTC_WriteAlarm(SECOND);
 
-	//time_struct time_info;
-	//time_info.flash_read_since_startup = 0;
-	FLASH_PageErase(TIME_ELAPSED_ADDRESS_START, 0);
-	FLASH_ByteWrite(TIME_ELAPSED_ADDRESS_START, 0x00, 0);
-	FLASH_ByteWrite(TIME_ELAPSED_ADDRESS_START + 1, 0x00, 0);
-	FLASH_ByteWrite(TIME_ELAPSED_ADDRESS_START + 2, 0xF8, 0);
-	hours_elapsed = get_hours_elapsed();
-
-
-	// Initially erase the test page of Flash
-	//hours_elapsed = 300;
+	   if (erase_flash) {
+		   FLASH_PageErase(TIME_ELAPSED_ADDRESS_START, 0);
+		   hours_elapsed = 0;
+		   //goal_time = THREE_HUNDRED;
+	   } else {
+		   hours_elapsed = get_hours_elapsed();
+		   //goal_time = get_goal_time();
+	   }
 
 
 	//----------------------------------
@@ -97,52 +104,53 @@ int main (void) {
 	while (1) {
 
 		//Immediately go to sleep after proper initialization
-	    LPM (SUSPEND);
+	    LPM (SLEEP);
 
 	  //-----------------------------------------------------------------------
 	  // Task #1 - Handle Port Match Event
 	  //-----------------------------------------------------------------------
 	  if(Port_Match_Wakeup) {
 		  if (chin_button_state != CHIN_BUTTON) { //CHIN_BUTTON was either pressed or released
-			  chin_button_state = CHIN_BUTTON;
-			  if (!chin_button_state) { //CHIN_BUTTON was pressed, run smaRTClock
-				  start_timer();
-				  RED_LED = LED_ON;
-				  enable_port_match_on_button_release(CHIN_BUTTON_MASK);
-			  } else { //CHIN_BUTTON was released, stop smaRTClock
-				  stop_timer();
-				  RED_LED = LED_OFF;
-				  enable_port_match_on_button_press(CHIN_BUTTON_MASK);
+			  if (!TIME_BUTTON) {
+
+			  } else {
+				  chin_button_state = CHIN_BUTTON;
+				  if (!chin_button_state) { //CHIN_BUTTON was pressed, run smaRTClock
+					  start_timer();
+					  RED_LED = LED_ON;
+					  enable_port_match_on_button_release(CHIN_BUTTON_MASK);
+				  } else { //CHIN_BUTTON was released, stop smaRTClock
+					  stop_timer();
+					  RED_LED = LED_OFF;
+					  enable_port_match_on_button_press(CHIN_BUTTON_MASK);
+				  }
 			  }
 		  }
+
 		  if (time_button_state != TIME_BUTTON) { //TIME_BUTTON was either pressed or released
 			  time_button_state = TIME_BUTTON;
 			  //TIME_BUTTON was pressed, copy the RTC capture timer to the RTC capture variable and display time via LEDs
 			  if (!time_button_state) {
-				  U16 current_time;
-				  //U8 RTC0CN_local;
-				  GREEN_LED = LED_ON;
-				  current_time = get_hours_elapsed();
-				  //RTC0CN_local = RTC_Read(RTC0CN);
+				  display_hours_on_LEDs(hours_elapsed);
 				  enable_port_match_on_button_release(TIME_BUTTON_MASK);
 			  } else { //TIME_BUTTON was released, turn off LEDs
-				  GREEN_LED = LED_OFF;
+				  RED_LED    = LED_OFF;
+				  YELLOW_LED = LED_OFF;
+				  GREEN_LED  = LED_OFF;
 				  enable_port_match_on_button_press(TIME_BUTTON_MASK);
 			  }
 		  }
-
 		  Port_Match_Wakeup = 0;        // Reset Port Match Flag to indicate
-										   // that we have detected an event
 	  }
 	  if (RTC_Alarm) {
-		  //U32 current_time;
-		  increment_hours_elapsed(hours_elapsed);
-		  hours_elapsed++;
-		  YELLOW_LED = !YELLOW_LED;
-		  //current_time = RTC_GetCurrentTime();
+		  //hours_elapsed++;
+		  increment_hours_elapsed(++hours_elapsed);
+		  //hours_elapsed = get_hours_elapsed();
 		  RTC_Alarm = 0;
+		  if (hours_elapsed >= 1) {
+			  GREEN_LED = LED_ON;
+		  }
 	  }
-
 	}
 
 	// NOTREACHED
@@ -154,17 +162,17 @@ int main (void) {
 U16 get_hours_elapsed() {
 	U16 total_count = 0;
 	U8 byte_number = 0;
-	U8 * byte_buffer;
+	U8 byte_buffer[1] = {0};
 	U8 sum_of_bits_in_byte = 0;
-	U8 byte_we_read;
+	U8 byte_we_read = 0;
 	while (sum_of_bits_in_byte == 0) {
-		U8 bit_number;
-
+		U8 bit_number = 0;
+		U8 temp = 0;
 		FLASH_Read(byte_buffer, TIME_ELAPSED_ADDRESS_START + byte_number, 1, 0);
-		byte_we_read = *byte_buffer;
+		byte_we_read = byte_buffer[0];
 		for (bit_number=0; bit_number<8; bit_number++) {
-			//byte_sum += (byte_we_read >> some_var) & 0x01;
-			sum_of_bits_in_byte += (byte_we_read >> bit_number) & 0x01;
+			temp = (byte_we_read >> bit_number);
+			sum_of_bits_in_byte += temp & 0x01;
 		}
 		byte_number++;
 	}
@@ -174,12 +182,14 @@ U16 get_hours_elapsed() {
 
 
 void increment_hours_elapsed(U16 hours_elapsed) {
-	U8 byte_to_modify_in_flash = hours_elapsed >> 3; //Want to divide by 8
-	U8 bit_to_modify_in_flash = hours_elapsed % 8;
-	U8 byte_to_write = 0xFF << bit_to_modify_in_flash;
-	FLASH_ByteWrite(TIME_ELAPSED_ADDRESS_START + byte_to_modify_in_flash, byte_to_write, 0);
-	//hours_elapsed++;
+	if (hours_elapsed > 0) {
+		U8 byte_to_modify_in_flash = (hours_elapsed - 1) >> 3; //Want to divide by 8
+		U8 num_bits_to_shift = ((hours_elapsed - 1) % 8) + 1;
+		U8 byte_to_write = 0xFF << num_bits_to_shift;
+		FLASH_ByteWrite(TIME_ELAPSED_ADDRESS_START + byte_to_modify_in_flash, byte_to_write, 0);
+	}
 }
+
 
 //-----------------------------------------------------------------------------
 // enable_port_match_on_button_press
@@ -220,16 +230,6 @@ void start_timer() {
 	U8 RTC0CN_current = RTC_Read(RTC0CN); //get current register values
 	RTC0CN_current = RTC0CN_current | RTC0CN_RTC0TR__BMASK | RTC0CN_ALRM__SET;
 	RTC_Write(RTC0CN, RTC0CN_current); //mask current register values with RTC Timer Run Control to start timer
-
-	/*
-	U8 RTC0CN_current = RTC_Read(RTC0CN); //get current register values
-	RTC_Write(RTC0CN, RTC0CN_current | RTC0CN_RTC0TR__BMASK);
-	*/
-	/*
-	U8 RTC0CN_current = RTC_Read(RTC0CN); //get current register values
-	RTC0CN_current = RTC0CN_current | RTC0CN_RTC0TR__BMASK | RTC0CN_ALRM__SET;
-	RTC_Write(RTC0CN, RTC0CN_current); //mask current register values with RTC Timer Run Control to start timer
-	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -248,7 +248,7 @@ void stop_timer() {
 //
 //-----------------------------------------------------------------------------
 U16 RTC_to_hours(U32 RTC_time) {
-	U16 hours;
+	U16 hours = 0;
 	/*
 	RTC_time = RTC_time >> 1; // <-- VALUE OF 1 IS NOT CORRECT.
 	hours = RTC_time & 0xFF;
@@ -263,27 +263,38 @@ U16 RTC_to_hours(U32 RTC_time) {
 //
 //-----------------------------------------------------------------------------
 
-/*
+
 void display_hours_on_LEDs(U16 hours) {
-	if (hours < 5) {
+	RED_LED = LED_ON;
+	YELLOW_LED = LED_ON;
+	GREEN_LED = LED_ON;
+
+	/*
+	if (hours < 60) {
 		RED_LED = LED_OFF;
 		YELLOW_LED = LED_OFF;
 		GREEN_LED = LED_OFF;
 	}
-	else if (hours < 300) {
+	else if (hours < 61) {
 		RED_LED = LED_ON;
 		YELLOW_LED = LED_OFF;
 		GREEN_LED = LED_OFF;
 	}
-	else if (hours < 301) {
+	else if (hours < 62) {
 		RED_LED = LED_ON;
 		YELLOW_LED = LED_ON;
 		GREEN_LED = LED_OFF;
 	}
-	else if (hours < 302) {
+	else if (hours <= 1) {
 		RED_LED = LED_ON;
 		YELLOW_LED = LED_ON;
 		GREEN_LED = LED_ON;
 	}
+	else {
+		RED_LED = LED_OFF;
+		YELLOW_LED = LED_OFF;
+		GREEN_LED = LED_ON;
+	}
+	*/
 }
-*/
+

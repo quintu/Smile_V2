@@ -22,13 +22,9 @@ SBIT (TIME_BUTTON, SFR_P0, TIME_BUTTON_MASK>>1);  // TIME_BUTTON == 0 means swit
 //#define HOUR 						1<<16
 // With current RTC settings, RTC clock operates at ~16,384 Hz == 1<<14
 #define SECOND						(1 << 14)
+#define MINUTE						((U32)60 << 14)
+#define HOUR						((U32)3600 << 14)
 #define TIME_ELAPSED_ADDRESS_START  0x1000
+//#define GOAL_TIME_FLASH_ADDRESS     0x0C00
 
-
-/*
-typedef struct time_struct
-{
-   U16 hours_elapsed;
-   bool flash_read_since_startup;
-} time_struct;
-*/
+//enum GoalTime{THREE_HUNDRED, FOUR_HUNDRED, FIVE_HUNDRED};

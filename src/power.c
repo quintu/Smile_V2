@@ -29,7 +29,8 @@
 //-----------------------------------------------------------------------------
 #include "SI_C8051F930_Register_Enums.h"
 #include "C8051F930_lib.h"
-//#include "SmartSmile_config.h"
+#include "SmartSmile_config.h"
+#include "F93x_FlashUtils.h"
 
 //-----------------------------------------------------------------------------
 // Global Variables
@@ -195,8 +196,7 @@ void LPM(U8 mode)
 
    
    // Check for a reset pin Wakeup
-   if(PMU0CF_snapshot & RSTWK)
-   {
+   if(PMU0CF_snapshot & RSTWK) {
       // Delay 15uS per datasheet recommendation
       for(b = 255; b > 0; b--);
    }
