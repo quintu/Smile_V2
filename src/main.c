@@ -26,12 +26,9 @@
  void enable_port_match_on_button_release(U8 mask);
  void start_timer();
  void stop_timer();
- U16 RTC_to_hours(U32 RTC_time);
  void display_hours_on_LEDs(U32 hours);
- U16 get_hours_elapsed();
+ U32 get_hours_elapsed();
  void increment_hours_elapsed(U32 hours_elapsed);
- void start_timer_0();
- //enum GoalTime get_goal_time();
 
 
 //-----------------------------------------------------------------------------
@@ -57,7 +54,7 @@ int main (void) {
 	 bool chin_button_state;
 	 bool time_button_state;
 	 U32 hours_elapsed;
-	 U8 wakeup_sources;
+	 //U8 wakeup_sources;
 	 erase_flash = 0;
 	 // Debug Trap -- Prevents the system from entering sleep mode after a reset if Switch 2 is pressed.
 	while(!TIME_BUTTON) {
@@ -111,19 +108,15 @@ int main (void) {
 	  //-----------------------------------------------------------------------
 	  if(Port_Match_Wakeup) {
 		  if (chin_button_state != CHIN_BUTTON) { //CHIN_BUTTON was either pressed or released
-			  if (!TIME_BUTTON) {
-
-			  } else {
-				  chin_button_state = CHIN_BUTTON;
-				  if (!chin_button_state) { //CHIN_BUTTON was pressed, run smaRTClock
-					  start_timer();
-					  RED_LED = LED_ON;
-					  enable_port_match_on_button_release(CHIN_BUTTON_MASK);
-				  } else { //CHIN_BUTTON was released, stop smaRTClock
-					  stop_timer();
-					  RED_LED = LED_OFF;
-					  enable_port_match_on_button_press(CHIN_BUTTON_MASK);
-				  }
+			  chin_button_state = CHIN_BUTTON;
+			  if (!chin_button_state) { //CHIN_BUTTON was pressed, run smaRTClock
+				  start_timer();
+				  //RED_LED = LED_ON;
+				  enable_port_match_on_button_release(CHIN_BUTTON_MASK);
+			  } else { //CHIN_BUTTON was released, stop smaRTClock
+				  stop_timer();
+				  //RED_LED = LED_OFF;
+				  enable_port_match_on_button_press(CHIN_BUTTON_MASK);
 			  }
 		  }
 
@@ -143,13 +136,9 @@ int main (void) {
 		  Port_Match_Wakeup = 0;        // Reset Port Match Flag to indicate
 	  }
 	  if (RTC_Alarm) {
-		  //hours_elapsed++;
 		  increment_hours_elapsed(++hours_elapsed);
-		  //hours_elapsed = get_hours_elapsed();
 		  RTC_Alarm = 0;
-		  if (hours_elapsed >= 1) {
-			  GREEN_LED = LED_ON;
-		  }
+		  //display_hours_on_LEDs(hours_elapsed);
 	  }
 	}
 
@@ -159,8 +148,8 @@ int main (void) {
 
 
 
-U16 get_hours_elapsed() {
-	U16 total_count = 0;
+U32 get_hours_elapsed() {
+	U32 total_count = 0;
 	U8 byte_number = 0;
 	U8 byte_buffer[1] = {0};
 	U8 sum_of_bits_in_byte = 0;
@@ -181,7 +170,7 @@ U16 get_hours_elapsed() {
 }
 
 
-void increment_hours_elapsed(U16 hours_elapsed) {
+void increment_hours_elapsed(U32 hours_elapsed) {
 	if (hours_elapsed > 0) {
 		U8 byte_to_modify_in_flash = (hours_elapsed - 1) >> 3; //Want to divide by 8
 		U8 num_bits_to_shift = ((hours_elapsed - 1) % 8) + 1;
@@ -242,20 +231,6 @@ void stop_timer() {
 	RTC_Write(RTC0CN, RTC0CN_current & ~RTC0CN_RTC0TR__BMASK); //mask current register values with ~RTC Timer Run Control to stop timer
 }
 
-//-----------------------------------------------------------------------------
-// RTC_to_hours
-//-----------------------------------------------------------------------------
-//
-//-----------------------------------------------------------------------------
-U16 RTC_to_hours(U32 RTC_time) {
-	U16 hours = 0;
-	/*
-	RTC_time = RTC_time >> 1; // <-- VALUE OF 1 IS NOT CORRECT.
-	hours = RTC_time & 0xFF;
-	//U8 hours = 0;
-	 */
-	return hours;
-}
 
 //-----------------------------------------------------------------------------
 // display_hours_on_LEDs
@@ -264,37 +239,117 @@ U16 RTC_to_hours(U32 RTC_time) {
 //-----------------------------------------------------------------------------
 
 
-void display_hours_on_LEDs(U16 hours) {
-	RED_LED = LED_ON;
-	YELLOW_LED = LED_ON;
-	GREEN_LED = LED_ON;
+void display_hours_on_LEDs(U32 hours) {
+	#ifdef ONE_HUNDRED
+		if (hours < 25) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 50) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 75) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else if (hours <= 100) {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_ON;
+		}
+	#endif // ONE_HUNDRED
 
-	/*
-	if (hours < 60) {
-		RED_LED = LED_OFF;
-		YELLOW_LED = LED_OFF;
-		GREEN_LED = LED_OFF;
-	}
-	else if (hours < 61) {
-		RED_LED = LED_ON;
-		YELLOW_LED = LED_OFF;
-		GREEN_LED = LED_OFF;
-	}
-	else if (hours < 62) {
-		RED_LED = LED_ON;
-		YELLOW_LED = LED_ON;
-		GREEN_LED = LED_OFF;
-	}
-	else if (hours <= 1) {
-		RED_LED = LED_ON;
-		YELLOW_LED = LED_ON;
-		GREEN_LED = LED_ON;
-	}
-	else {
-		RED_LED = LED_OFF;
-		YELLOW_LED = LED_OFF;
-		GREEN_LED = LED_ON;
-	}
-	*/
+	#ifdef THREE_HUNDRED
+		if (hours < 225) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 250) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 275) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else if (hours <= 300) {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_ON;
+		}
+	#endif //THREE_HUNDRED
+
+	#ifdef FOUR_HUNDRED
+		if (hours < 325) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 350) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 375) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else if (hours <= 400) {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_ON;
+		}
+	#endif //FOUR_HUNDRED
+
+	#ifdef FIVE_HUNDRED
+		if (hours < 425) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 450) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_OFF;
+		}
+		else if (hours < 475) {
+			RED_LED = LED_ON;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else if (hours <= 500) {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_ON;
+			GREEN_LED = LED_ON;
+		}
+		else {
+			RED_LED = LED_OFF;
+			YELLOW_LED = LED_OFF;
+			GREEN_LED = LED_ON;
+		}
+	#endif //FIVE_HUNDRED
 }
 

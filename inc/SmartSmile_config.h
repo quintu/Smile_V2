@@ -19,12 +19,13 @@ SBIT (TIME_BUTTON, SFR_P0, TIME_BUTTON_MASK>>1);  // TIME_BUTTON == 0 means swit
 #define LED_OFF          			0
 #define SWITCH_PRESSED        		0        // Macros to determine switch state
 #define SWITCH_NOT_PRESSED    		1
-//#define HOUR 						1<<16
+
 // With current RTC settings, RTC clock operates at ~16,384 Hz == 1<<14
-#define SECOND						(1 << 14)
+#define SECOND						((U32)1 << 14)
 #define MINUTE						((U32)60 << 14)
 #define HOUR						((U32)3600 << 14)
 #define TIME_ELAPSED_ADDRESS_START  0x1000
-//#define GOAL_TIME_FLASH_ADDRESS     0x0C00
-
-//enum GoalTime{THREE_HUNDRED, FOUR_HUNDRED, FIVE_HUNDRED};
+#define ONE_HUNDRED					1
+//#define THREE_HUNDRED				1
+//#define FOUR_HUNDRED				1
+//#define FIVE_HUNDRED				1
